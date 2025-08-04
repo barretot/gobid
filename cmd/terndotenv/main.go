@@ -13,7 +13,8 @@ func main() {
 	}
 
 	cmd := exec.Command(
-		"tern", "migrate",
+		"tern",
+		"migrate",
 		"--migrations",
 		"./internal/store/pgstore/migrations",
 		"--config",
@@ -21,7 +22,6 @@ func main() {
 	)
 
 	output, err := cmd.CombinedOutput()
-
 	if err != nil {
 		fmt.Println("Command execution failed: ", err)
 		fmt.Println("Output: ", string(output))

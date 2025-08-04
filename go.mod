@@ -5,6 +5,8 @@ go 1.24.4
 require github.com/joho/godotenv v1.5.1
 
 require (
+	github.com/alexedwards/scs/pgxstore v0.0.0-20250417082927-ab20b3feb5e9
+	github.com/alexedwards/scs/v2 v2.9.0
 	github.com/go-chi/chi/v5 v5.2.2
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/google/uuid v1.6.0

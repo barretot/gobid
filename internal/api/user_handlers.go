@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/barretot/gobid/internal/jsonutils"
 	"github.com/barretot/gobid/internal/services"
 	"github.com/barretot/gobid/internal/usecase/user"
 	"github.com/barretot/gobid/internal/validator"
@@ -33,24 +34,72 @@ func (api *Api) handleSignupUser(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if err != nil {
-		if errors.Is(err, services.ErrDuplicatedEmailOrPassword) {
-			http.Error(w, "Email ou nome de usuário já está em uso", http.StatusConflict)
-			return
-		}
-		http.Error(w, "Erro interno ao criar usuário", http.StatusInternalServerError)
+		errors.Is(err, services.ErrDuplicatedEmailOrUsername)
+		_ = jsonutils.EncodeJson(w, r, http.StatusUnprocessableEntity, map[string]any{
+			"error": "email or username already exists",
+		})
 		return
 	}
 
-	// Sucesso
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	fmt.Fprintf(w, `{"id":"%s","message":"Usuário criado com sucesso"}`, id.String())
+	_ = jsonutils.EncodeJson(w, r, http.StatusUnprocessableEntity, map[string]any{
+		"user_id": id,
+	})
 }
 
 func (api *Api) handleLoginUser(w http.ResponseWriter, r *http.Request) {
-	panic("TODO - NOT IMPLEMENTED")
+	var req user.LoginUserReq
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Corpo da requisição inválido", http.StatusBadRequest)
+		return
+	}
+
+	if err := validator.ValidateRequest(req); err != nil {
+		http.Error(w, fmt.Sprintf("validation error: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	id, err := api.UserService.AuthenticateUser(r.Context(), req.Email, req.Password)
+
+	if err != nil {
+		if errors.Is(err, services.ErrInvalidCredentials) {
+			jsonutils.EncodeJson(w, r, http.StatusUnauthorized, map[string]any{
+				"error": "invalid email or password",
+			})
+			return
+		}
+		jsonutils.EncodeJson(w, r, http.StatusInternalServerError, map[string]any{
+			"error": "unexpected internal server error",
+		})
+		return
+	}
+
+	err = api.Sessions.RenewToken(r.Context())
+	if err != nil {
+		jsonutils.EncodeJson(w, r, http.StatusInternalServerError, map[string]any{
+			"error": "unexpected internal server error",
+		})
+		return
+	}
+
+	api.Sessions.Put(r.Context(), "AuthenticatedUserId", id)
+
+	jsonutils.EncodeJson(w, r, http.StatusOK, map[string]any{
+		"message": "logged in successfully",
+	})
 }
 
 func (api *Api) handleLogoutUser(w http.ResponseWriter, r *http.Request) {
-	panic("TODO - NOT IMPLEMENTED")
+	err := api.Sessions.RenewToken(r.Context())
+	if err != nil {
+		jsonutils.EncodeJson(w, r, http.StatusInternalServerError, map[string]any{
+			"error": "unexpected internal server error",
+		})
+		return
+	}
+
+	api.Sessions.Remove(r.Context(), "AuthenticatedUserId")
+	jsonutils.EncodeJson(w, r, http.StatusOK, map[string]any{
+		"message": "logged out successfully",
+	})
 }

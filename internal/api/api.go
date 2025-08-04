@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/alexedwards/scs/v2"
 	"github.com/barretot/gobid/internal/services"
 	"github.com/go-chi/chi/v5"
 )
@@ -8,4 +9,5 @@ import (
 type Api struct {
 	Router      *chi.Mux
 	UserService services.UserService
-} // Cada método para cada rota
+	Sessions    *scs.SessionManager
+}
